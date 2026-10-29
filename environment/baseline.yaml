@@ -1,0 +1,33 @@
+# HopProof's verified local development baseline, recorded 2026-10-29 UTC.
+# This specification prepares prerequisites; it does not deploy the application.
+schema_version: 1
+project:
+  name: HopProof
+  description: Network Automation & Operations Lab
+  tagline: Verify the route. Confirm the signal.
+platform:
+  architecture: x86_64
+  host: Windows with WSL2
+  distribution: NetOpsLab24
+  os: Ubuntu 24.04.5 LTS
+  docker_engine_location: inside the dedicated WSL distribution
+validated_versions:
+  controller_python: 3.12.3
+  docker_engine: 29.9.2
+  containerlab: 0.80.0
+  ansible_core: 2.21.5
+  workload_python: 3.12.16
+images:
+  router: quay.io/frrouting/frr:containerlab-10.7.1@sha256:f7d98e4faa24333c1fdb638f72678111de07a7aef90566132655dbadceca86c7
+  workload_base: python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159
+reserved_lab_subnets:
+  - 10.10.1.0/24
+  - 10.10.12.0/30
+  - 10.10.2.0/24
+  - 172.30.100.0/24
+runtime_requirements:
+  storage: Linux filesystem for SSH keys and instance state
+  private_key_mode: "0600"
+  instance_directory_mode: "0700"
+  wsl_lifetime: keep an interactive WSL shell open while the lab runs
+  application_included: false
