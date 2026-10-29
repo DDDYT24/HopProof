@@ -4,7 +4,7 @@ Network Automation & Operations Lab
 
 *Verify the route. Confirm the signal.*
 
-I built HopProof as a small lab for working through network faults. A site sends messages through two virtual routers to a receiver. I can remove a route, see why the messages stop arriving, and check whether a repair gets them moving again.
+I built HopProof to make network faults reproducible in a small local lab. A site sends messages through two virtual routers to a receiver. I use it to remove a managed route, inspect the resulting fault, and verify that new messages arrive after a repair.
 
 The Linux/WSL application is free to use through [Releases](https://github.com/DDDYT24/HopProof/releases), under the terms included with the download. I'm keeping the application source private. This repository contains the project introduction and environment setup files.
 
