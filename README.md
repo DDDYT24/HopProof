@@ -4,21 +4,21 @@ Network Automation & Operations Lab
 
 *Verify the route. Confirm the signal.*
 
-HopProof is a local networking lab for checking whether messages can travel from a remote site to a central receiver. It compares the routes you intended to configure with the routes a router actually has, then checks whether new messages arrive.
+I built HopProof as a small lab for working through network faults. A site sends messages through two virtual routers to a receiver. I can remove a route, see why the messages stop arriving, and check whether a repair gets them moving again.
 
-This repository contains the project introduction and environment preparation files. The Linux/WSL application is available in [Releases](https://github.com/DDDYT24/HopProof/releases). It is free to use under the terms included with the download. Application source remains private.
+The Linux/WSL application is free to use through [Releases](https://github.com/DDDYT24/HopProof/releases), under the terms included with the download. I'm keeping the application source private. This repository contains the project introduction and environment setup files.
 
-## Why HopProof exists
+## Why I built it
 
-A router can accept a configuration command while communication still fails. A route may be missing from the forwarding table, a link may be down, or the receiving program may have stopped. Checking the settings alone cannot tell you which problem you have.
+I wanted a lab where I could follow a fault from the router settings through to the application. A router can accept a configuration command while messages still fail to arrive. The route may be missing from the forwarding table, or the problem may be a broken link or a stopped receiver.
 
-HopProof uses a small, repeatable experiment: a site sends a short message through two virtual routers to a receiver. You can inspect the route configuration, check the forwarding path, and compare the message sent with the receiver's reply.
+With just four nodes, I can follow the whole traffic path. The site sends a small heartbeat through both routers, and the receiver replies. That gives me an application-level check to compare with what the routers report.
 
 ```text
 Site sender  -->  Router 1  -->  Router 2  -->  Central receiver
 ```
 
-A few terms used throughout the project:
+These are the networking terms used in the lab:
 
 | Term | Plain-language meaning |
 | --- | --- |
@@ -29,17 +29,15 @@ A few terms used throughout the project:
 | RIB and FIB | The RIB is the routing software's record of routes. The FIB is the operating system's table used to forward packets. HopProof checks both. |
 | Heartbeat and ACK | A heartbeat is a small periodic message. An ACK is the receiver's reply, matched to that message's session and sequence number. |
 
-The design keeps three questions separate: does the configuration match the intent, can the network carry traffic, and is the receiving application responding? Unknown or stale evidence stays unknown. A previous successful message does not prove that new messages are still arriving.
+I keep configuration, forwarding and application health separate in the diagnosis. If an observation is missing or too old, the result stays unknown. A repair only counts as successful when new messages receive matching replies after the change.
 
-HopProof supports lab startup and shutdown, initial route configuration, diagnosis, read-only monitoring and operator-triggered repair of one missing managed route. Built-in scenarios let you remove that route, stop either endpoint program or bring down the middle link, then observe and restore the lab. The experiment uses synthetic traffic on a local virtual network.
+The other fault scenarios stop the sender or receiver, or bring down the link between the routers. I limited repair to one missing managed route. If the receiver has stopped, adding a route shouldn't count as fixing it. Each scenario can be restored from the CLI. All traffic is synthetic.
 
 ## Who it is for
 
-- Students learning static routing, Linux networking, and Ansible.
-- Developers who want to see how a network fault affects an application.
-- Engineers practicing configuration checks and service verification in an isolated environment.
+The lab should suit students learning static routing, Linux networking and Ansible, or engineers who want somewhere to practise configuration checks. If you develop applications, you can also use it to see what a network fault looks like at the sending and receiving ends.
 
-Some familiarity with a terminal is useful. The lab uses a fixed IPv4 topology and is intended for local practice; it has not been validated for production networks.
+You'll need some familiarity with a terminal. I've kept the lab to a fixed IPv4 topology for local practice. I haven't validated it on production networks.
 
 ## How to use it
 
@@ -53,11 +51,11 @@ environment/
   setup-wsl.sh
 ```
 
-Use these files to prepare the environment, then download the application archive and its SHA-256 checksum from [release v0.1.0](https://github.com/DDDYT24/HopProof/releases/tag/v0.1.0). The archive contains the Linux x86_64 executable, lab support files, usage terms and third-party notices. The application is distributed for free use; it is not released under an open-source license.
+I provide the environment files here and the application archive, along with its SHA-256 checksum, in [release v0.1.0](https://github.com/DDDYT24/HopProof/releases/tag/v0.1.0). Download both before starting. The archive includes the Linux x86_64 executable and its lab support files, usage terms and third-party notices. The application is free to use under those terms; it is not open source.
 
 ### Prepare the environment
 
-The verified x86_64 controller environment is a dedicated WSL2 Ubuntu 24.04 distribution with Docker Engine installed inside it. The setup helper retains the internal distribution name `NetOpsLab24` to match the validated environment. On Windows, use PowerShell to create it if that name is not already in use:
+I use a dedicated WSL2 Ubuntu 24.04 distribution on x86_64, with Docker Engine installed inside it. The setup helper expects the distribution to be named `NetOpsLab24`. On Windows, create it from PowerShell if that name is not already in use:
 
 ```powershell
 wsl --install -d Ubuntu-24.04 --name NetOpsLab24 --no-launch --web-download
@@ -132,7 +130,7 @@ Run the commands from the extracted directory. `--runtime-root` keeps SSH keys o
 
 Each operation prints a report path under `artifacts`. Keep reports and runtime state private. If a change cannot be confirmed, inspect its report before retrying. Use the application's `down` command to clean up its own instance.
 
-The `labctl` CLI is a command-line interface operated from a terminal:
+Here is what the main `labctl` commands do:
 
 1. `validate` checks the intended configuration without contacting devices.
 2. `doctor` checks the controller environment, permissions and subnet conflicts.
@@ -145,7 +143,7 @@ Use `./labctl --help` for the command list and `USAGE.md` in the archive for exi
 
 ## Technology stack
 
-The verified development baseline is recorded in [environment/baseline.yaml](environment/baseline.yaml).
+I recorded the development environment in [environment/baseline.yaml](environment/baseline.yaml).
 
 | Tool | Role | Verified version |
 | --- | --- | --- |
@@ -158,13 +156,13 @@ The verified development baseline is recorded in [environment/baseline.yaml](env
 | pytest | Unit and real network checks in the private development workspace and CI | 9.2.0 |
 | PyInstaller | Builds the downloadable Linux executable | 6.22.3 |
 
-The table records the source development baseline. The downloadable edition embeds Python 3.12.15 for its controller and endpoint processes; it still uses the pinned external Ansible and router dependencies.
+These versions describe the source development environment. I package the download with Python 3.12.15 for its controller and endpoint processes. Ansible and the router image remain separate, pinned dependencies.
 
-The controller runs on Linux. Windows hosts it through WSL2. This setup uses a terminal interface and local containers, with no cloud account required.
+I run the controller on Linux through WSL2 on Windows. The lab uses a terminal and local containers, so you do not need a cloud account.
 
 ## Acknowledgements
 
-Containerlab's native FRR integration and FRRouting's lab images provide the virtual-router foundation. Thanks to the maintainers of these projects and the tools used to build and check the lab:
+I built the virtual network with Containerlab's native FRR integration and FRRouting's lab images. Thanks to their maintainers, and to the maintainers of the other tools used here:
 
 [Containerlab](https://containerlab.dev/), [FRRouting](https://frrouting.org/), [Docker](https://docs.docker.com/engine/), [Ansible](https://docs.ansible.com/), [Python](https://www.python.org/), [PyYAML](https://pyyaml.org/), [Jinja](https://jinja.palletsprojects.com/), [jsonschema](https://python-jsonschema.readthedocs.io/), [pytest](https://docs.pytest.org/), and [PyInstaller](https://pyinstaller.org/).
 
