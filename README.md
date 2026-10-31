@@ -39,6 +39,35 @@ The lab should suit students learning static routing, Linux networking and Ansib
 
 You'll need some familiarity with a terminal. I've kept the lab to a fixed IPv4 topology for local practice. I haven't validated it on production networks.
 
+## What's new in 0.2.0
+
+The first version answered one question for me: after I repair a route, do heartbeats get through again? Once that worked, I realised it wasn't the question I actually cared about. A monitoring site doesn't exist to send heartbeats. It exists to send readings. A link can come back while the data behind it is still stale, or arriving with a bad quality flag, or missing the minutes lost during the outage. In 0.2.0 I wanted the lab to tell those cases apart.
+
+So I added a reading replay. Next to the heartbeat, the site now sends short runs of synthetic flow and pressure readings to the receiver. I took them from an earlier synthetic pipeline dataset and froze three small inputs for the lab. One is a clean 30-reading run, one is a longer 360-reading run for outage tests, and one is a 60-reading run where about half the readings carry an invalid quality flag. The replay sends each reading slot once. If the network is down when a slot comes due, that reading is gone. I deliberately left out retries and catch-up, because quietly filling a gap afterwards would hide exactly what I want to see.
+
+The receiver only calls the data available again after three new, fresh and valid readings in a row. That gives the lab two separate recovery times. One is when the network came back, which I take from the V1 repair check. The other is when the data came back. I record both and don't assume one caused the other.
+
+I also kept different kinds of trouble apart, because they need different responses:
+
+- A broken route shows up as missed readings and stale data. Repair is still something I run myself; nothing in the replay changes a route.
+- If I pause the producer, the data goes stale while the network and heartbeat stay healthy, and the lab leaves the routes alone.
+- Readings that arrive on time with an invalid quality flag count as received but not usable. They don't make the network look broken.
+- If the receiver stored a reading but its acknowledgement was lost, I don't count that reading as missing.
+- When the source itself has no reading for a slot, I count that as a source gap, not as network loss.
+
+Every replay ends with a report: JSON, Markdown and a single HTML page, all built from the same data. The page opens with the outcome in one sentence. Below that is a timeline with my actions, the V1 observations, data availability, each reading slot and the acknowledgements, followed by small charts of the readings. It loads nothing from the internet. The raw hashes and evidence sit in a folded section at the bottom. If the network recovered but readings were lost on the way, the page shows that gap clearly. I'd rather it never looked like a clean run.
+
+I tested 0.2.0 the same way I tested the first release. In my WSL lab and on a temporary GitHub runner, I ran four real scenarios on the four-node network:
+
+- a clean run to the end;
+- a route removed and then repaired by hand;
+- a paused and resumed replay, including a receiver restart;
+- a run of invalid readings.
+
+Around those, I added a slow acknowledgement, duplicate and late messages, a crashed sender and a shutdown during an active replay. The original V1 network matrix still passes. Before publishing, I ran the release archive itself through 56 checks on the runner, then extracted the same file again in WSL and ran all 56 there too.
+
+0.2.0 is still a learning lab with synthetic data. It doesn't detect leaks, and I haven't run it against field equipment.
+
 ## How to use it
 
 ### What is available today
@@ -139,9 +168,11 @@ Here is what the main `labctl` commands do:
 5. `diagnose` writes separate configuration, network and application results. `monitor` repeats read-only checks; Ctrl+C leaves the lab running.
 6. `down` removes that instance's containers and network while preserving reports.
 
+Use `./labctl --help` for the command list and `USAGE.md` in the archive for exit codes and operating notes. The executable package was checked separately from source tests with real lab deployment, faults, repair and cleanup. Packaging does not prevent inspection or reverse engineering.
+
 ### Replay monitoring readings
 
-Version 0.2.0 adds a second question to the lab. After the route is fixed, are fresh, valid readings reaching the receiver again? I replay short synthetic pipeline readings, such as flow and pressure, from the site to the receiver next to the heartbeat. The three sample inputs are in `examples/replay` inside the archive. Each reading slot is sent once, with no retries or catch-up after an outage.
+Run a replay after `configure`, while the lab is healthy. The three sample inputs are in `examples/replay` inside the archive:
 
 ```bash
 ./labctl --runtime-root "$HOME/netops-lab" --instance example replay start --dataset examples/replay/normal-30.csv
@@ -150,9 +181,7 @@ Version 0.2.0 adds a second question to the lab. After the route is fixed, are f
 ./labctl --runtime-root "$HOME/netops-lab" --instance example replay report --replay-id <id printed by start>
 ```
 
-The report command writes JSON, Markdown and a self-contained HTML page from the same data. The page shows when the network recovered and when the data recovered as two separate times. It also keeps every earlier gap visible after recovery. A reading only counts as missing if the receiver never recorded it. I keep a stopped producer, invalid readings and lost acknowledgements apart from network loss. Replay results never trigger a route repair; repair stays an operator decision.
-
-Use `./labctl --help` for the command list and `USAGE.md` in the archive for exit codes and operating notes. The executable package was checked separately from source tests with real lab deployment, faults, repair and cleanup. Packaging does not prevent inspection or reverse engineering.
+`pause` and `resume` hold and continue the same sender. The report command prints where it wrote report.json, summary.md and report.html.
 
 ## Technology stack
 
