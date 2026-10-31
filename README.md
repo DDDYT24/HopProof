@@ -51,7 +51,7 @@ environment/
   setup-wsl.sh
 ```
 
-I provide the environment files here and the application archive, along with its SHA-256 checksum, in [release v0.1.0](https://github.com/DDDYT24/HopProof/releases/tag/v0.1.0). Download both before starting. The archive includes the Linux x86_64 executable and its lab support files, usage terms and third-party notices. The application is free to use under those terms; it is not open source.
+I provide the environment files here and the application archive, along with its SHA-256 checksum, in [release v0.2.0](https://github.com/DDDYT24/HopProof/releases/tag/v0.2.0). Download both before starting. The archive includes the Linux x86_64 executable and its lab support files, usage terms and third-party notices. The application is free to use under those terms; it is not open source.
 
 ### Prepare the environment
 
@@ -62,7 +62,7 @@ wsl --install -d Ubuntu-24.04 --name NetOpsLab24 --no-launch --web-download
 wsl -d NetOpsLab24 -u root
 ```
 
-Download this repository using GitHub's **Code > Download ZIP** option and extract it. In the WSL shell, change to the extracted directory. Replace `/mnt/c/path/to/HopProof` with its actual Linux path:
+Download this repository as a ZIP from its GitHub page (the green download button, then **Download ZIP**) and extract it. In the WSL shell, change to the extracted directory. Replace `/mnt/c/path/to/HopProof` with its actual Linux path:
 
 ```bash
 cd /mnt/c/path/to/HopProof
@@ -97,9 +97,9 @@ Keep runtime state and SSH keys on the Linux filesystem, where their permissions
 In the `netops` WSL shell, put the release archive and its checksum in a new directory on the Linux filesystem. Verify and extract the archive:
 
 ```bash
-sha256sum --check HopProof-0.1.0-linux-x86_64-*.tar.gz.sha256
-tar -xzf HopProof-0.1.0-linux-x86_64-*.tar.gz
-cd HopProof-0.1.0-linux-x86_64-*/
+sha256sum --check HopProof-0.2.0-linux-x86_64-*.tar.gz.sha256
+tar -xzf HopProof-0.2.0-linux-x86_64-*.tar.gz
+cd HopProof-0.2.0-linux-x86_64-*/
 ```
 
 Pull the two images pinned in the supplied configuration:
@@ -139,6 +139,19 @@ Here is what the main `labctl` commands do:
 5. `diagnose` writes separate configuration, network and application results. `monitor` repeats read-only checks; Ctrl+C leaves the lab running.
 6. `down` removes that instance's containers and network while preserving reports.
 
+### Replay monitoring readings
+
+Version 0.2.0 adds a second question to the lab. After the route is fixed, are fresh, valid readings reaching the receiver again? I replay short synthetic pipeline readings, such as flow and pressure, from the site to the receiver next to the heartbeat. The three sample inputs are in `examples/replay` inside the archive. Each reading slot is sent once, with no retries or catch-up after an outage.
+
+```bash
+./labctl --runtime-root "$HOME/netops-lab" --instance example replay start --dataset examples/replay/normal-30.csv
+./labctl --runtime-root "$HOME/netops-lab" --instance example replay status
+./labctl --runtime-root "$HOME/netops-lab" --instance example replay stop
+./labctl --runtime-root "$HOME/netops-lab" --instance example replay report --replay-id <id printed by start>
+```
+
+The report command writes JSON, Markdown and a self-contained HTML page from the same data. The page shows when the network recovered and when the data recovered as two separate times. It also keeps every earlier gap visible after recovery. A reading only counts as missing if the receiver never recorded it. I keep a stopped producer, invalid readings and lost acknowledgements apart from network loss. Replay results never trigger a route repair; repair stays an operator decision.
+
 Use `./labctl --help` for the command list and `USAGE.md` in the archive for exit codes and operating notes. The executable package was checked separately from source tests with real lab deployment, faults, repair and cleanup. Packaging does not prevent inspection or reverse engineering.
 
 ## Technology stack
@@ -158,7 +171,7 @@ I recorded the development environment in [environment/baseline.yaml](environmen
 
 These versions describe the source development environment. I package the download with Python 3.12.15 for its controller and endpoint processes. Ansible and the router image remain separate, pinned dependencies.
 
-I run the controller on Linux through WSL2 on Windows. The lab uses a terminal and local containers, so you do not need a cloud account.
+I run the controller on Linux through WSL2 on Windows. The lab uses a terminal and local containers, so you do not need any hosted service account.
 
 ## Acknowledgements
 
