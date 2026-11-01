@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/hopproof-logo.png" alt="HopProof" width="720">
+</p>
+
 # HopProof
 
 Network Automation & Operations Lab
@@ -74,6 +78,9 @@ Around those, I added a slow acknowledgement, duplicate and late messages, a cra
 
 ```text
 README.md
+assets/
+  hopproof-logo.png
+  replay/            report screenshots used in the example runs below
 environment/
   baseline.yaml
   requirements-lock.txt
@@ -182,6 +189,86 @@ Run a replay after `configure`, while the lab is healthy. The three sample input
 ```
 
 `pause` and `resume` hold and continue the same sender. The report command prints where it wrote report.json, summary.md and report.html.
+
+### Example runs to try
+
+These are the four replay runs I use to check the lab from end to end. Each one starts from a healthy lab after `configure`. The numbers and screenshots below come from one of my acceptance runs in WSL on 29 October 2026. Counts that depend on timing, such as how many slots fall inside a pause, will differ on your machine, but the shape of each result should match.
+
+To keep the commands short, I define a small shell function in the extracted directory first:
+
+```bash
+lab() { ./labctl --runtime-root "$HOME/netops-lab" --instance example "$@"; }
+```
+
+| Run | Input | What I do | What the report should show |
+| --- | --- | --- | --- |
+| Clean run | `normal-30.csv` | Start it and let it finish | 30 of 30 readings received, acknowledged and valid; nothing missing; the report command exits 0 |
+| Route removed and repaired | `normal-360.csv` | Remove r1's managed route during the run, diagnose, repair | A permanent gap (51 readings in my run), with network recovery and data recovery recorded separately |
+| Pause and resume | `normal-360.csv` | Pause the sender, wait, resume | Paused slots counted as missing (33 in my run) while the network stays reachable |
+| Invalid quality | `quality-invalid-60.csv` | Start it and let it finish | 60 of 60 received and acknowledged, but 31 flagged invalid and only 29 usable |
+
+The last three report commands exit 1. In this lab, 1 means the report found something that still needs attention, which is exactly what these runs are meant to produce.
+
+#### Clean run
+
+```bash
+lab replay validate --dataset examples/replay/normal-30.csv
+lab replay start --dataset examples/replay/normal-30.csv
+lab replay status      # repeat until producer shows COMPLETED
+lab replay stop
+lab replay report --replay-id <id printed by start>
+```
+
+`validate` checks the input before anything is sent; for the three samples it selects 30, 360 and 60 readings. The finished report says every due reading arrived on time, was acknowledged and carried a valid quality flag, and the data was available at the end.
+
+![Report outcome for the clean run: 30 of 30 readings received, acknowledged and valid](assets/replay/normal-outcome.jpg)
+
+#### Route removed and repaired
+
+```bash
+lab replay start --dataset examples/replay/normal-360.csv
+# let a few readings arrive, then break the path
+lab demo --scenario route-missing --action inject
+lab diagnose           # exits 1; configuration result is MISSING_MANAGED_ROUTE
+lab repair             # collects fresh evidence and adds back only that route
+lab replay stop
+lab replay report --replay-id <id printed by start>
+```
+
+In my run, readings 16 to 66 never arrived and stay marked as missing. Data was available again at 23:30:47, and the V1 repair check confirmed network recovery at 23:31:10 with at least five new heartbeat ACKs. The report keeps both times and does not claim either one caused the other. The timeline puts my actions, the V1 observations, data availability, each reading slot and the acknowledgements on one UTC clock:
+
+![Report timeline for the route repair run, with the missing reading slots in red and stale data in yellow](assets/replay/route-timeline.jpg)
+
+#### Pause and resume
+
+```bash
+lab replay start --dataset examples/replay/normal-360.csv
+lab replay pause
+lab replay status      # exits 1: producer PAUSED, freshness STALE
+lab repair             # reports the lab is already healthy and changes nothing
+lab replay resume
+lab replay stop
+lab replay report --replay-id <id printed by start>
+```
+
+While the sender is paused, the heartbeat stays healthy and only the data goes stale, so `repair` has nothing to do. The slots that came due during the pause are never sent and stay counted as missing after the data recovers.
+
+![Report outcome for the pause run: 33 slots missing while the network stayed reachable](assets/replay/pause-outcome.jpg)
+
+#### Invalid quality
+
+```bash
+lab replay start --dataset examples/replay/quality-invalid-60.csv
+lab replay status      # repeat until producer shows COMPLETED
+lab replay stop
+lab replay report --replay-id <id printed by start>
+```
+
+Every reading in this run is delivered and acknowledged, and the network stays reachable. Readings 10 to 40 carry an invalid instrument-quality flag, so the report counts them as received but not usable: 29 of 60 timely valid readings.
+
+![Report outcome for the invalid quality run: 60 of 60 delivered, 31 invalid](assets/replay/quality-outcome.jpg)
+
+Finish with `lab down` when you are done. If you forget to stop a replay, `down` stops it and keeps its evidence before removing the lab.
 
 ## Technology stack
 
