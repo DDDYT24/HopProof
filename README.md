@@ -18,9 +18,11 @@ I wanted a lab where I could follow a fault from the router settings through to 
 
 With just four nodes, I can follow the whole traffic path. The site sends a small heartbeat through both routers, and the receiver replies. That gives me an application-level check to compare with what the routers report.
 
-```text
-Site sender  -->  Router 1  -->  Router 2  -->  Central receiver
-```
+<p align="center">
+  <img src="assets/topology.png" alt="Lab topology: the site sender at 10.10.1.10 connects to router r1, r1 connects to router r2 over 10.10.12.0/30, and r2 connects to the center receiver at 10.10.2.10. Each router holds one managed static route." width="900">
+</p>
+
+The site and center networks sit on opposite sides of the two routers. r1 needs a route to the center network, and r2 needs one back to the site network. Those two static routes are the ones HopProof manages, and the repair demo removes the one on r1.
 
 These are the networking terms used in the lab:
 
@@ -80,6 +82,7 @@ Around those, I added a slow acknowledgement, duplicate and late messages, a cra
 README.md
 assets/
   hopproof-logo.png
+  topology.png       the network diagram above
   replay/            report screenshots used in the example runs below
 environment/
   baseline.yaml
